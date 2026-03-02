@@ -77,41 +77,10 @@ def get_commits(owner: str, repo: str):
     url = f"https://api.github.com/repos/{owner}/{repo}/commits"
     response = requests.get(url)
 
-    if response.status_code != 200:
-        return {"error": "Repository not found or API failed"}
-
-    data = response.json()
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    inserted_count = 0
-
-    for commit in data[:5]:
-        author = commit["commit"]["author"]["name"]
-        message = commit["commit"]["message"]
-        date = commit["commit"]["author"]["date"]
-        sha = commit["sha"]
-
-        cursor.execute(
-            """
-            INSERT INTO commits (sha, repo_owner, repo_name, author, message, commit_date)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (sha) DO NOTHING
-            RETURNING id;
-            """,
-            (sha, owner, repo, author, message, date)
-        )
-
-        if cursor.fetchone():
-            inserted_count += 1
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    return {"status": "stored in database", "inserted": inserted_count}
-
+    return {
+        "status_code": response.status_code,
+        "response_preview": response.text[:500]
+    }
 
 # -----------------------
 # Analytics Endpoints
