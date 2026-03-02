@@ -184,3 +184,23 @@ def create_table():
     conn.commit()
     cursor.close()
     conn.close()
+@app.on_event("startup")
+def create_table():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS commits (
+            id SERIAL PRIMARY KEY,
+            repo_owner TEXT,
+            repo_name TEXT,
+            sha TEXT UNIQUE,
+            author TEXT,
+            message TEXT,
+            date TIMESTAMP
+        );
+    """)
+
+    conn.commit()
+    cursor.close()
+    conn.close()
