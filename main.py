@@ -2,11 +2,46 @@ from fastapi import FastAPI
 import requests
 import psycopg2
 import os
+
 app = FastAPI()
 
+
+# -----------------------
+# Database Connection
+# -----------------------
 def get_db_connection():
     database_url = os.getenv("DATABASE_URL")
     return psycopg2.connect(database_url)
+
+
+# -----------------------
+# Startup: Auto-create table
+# -----------------------
+@app.on_event("startup")
+def create_table():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS commits (
+            id SERIAL PRIMARY KEY,
+            repo_owner TEXT,
+            repo_name TEXT,
+            sha TEXT UNIQUE,
+            author TEXT,
+            message TEXT,
+            commit_date TIMESTAMP
+        );
+    """)
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+# -----------------------
+# Basic Routes
+# -----------------------
 @app.get("/")
 def home():
     return {"Hello": "World"}
@@ -33,6 +68,10 @@ def test_params(owner: str, repo: str):
         "repo_received": repo
     }
 
+
+# -----------------------
+# Fetch & Store Commits
+# -----------------------
 @app.get("/commits")
 def get_commits(owner: str, repo: str):
     url = f"https://api.github.com/repos/{owner}/{repo}/commits"
@@ -52,7 +91,6 @@ def get_commits(owner: str, repo: str):
         author = commit["commit"]["author"]["name"]
         message = commit["commit"]["message"]
         date = commit["commit"]["author"]["date"]
-
         sha = commit["sha"]
 
         cursor.execute(
@@ -67,12 +105,17 @@ def get_commits(owner: str, repo: str):
 
         if cursor.fetchone():
             inserted_count += 1
+
     conn.commit()
     cursor.close()
     conn.close()
 
     return {"status": "stored in database", "inserted": inserted_count}
 
+
+# -----------------------
+# Analytics Endpoints
+# -----------------------
 @app.get("/top-contributors")
 def top_contributors(owner: str, repo: str):
     try:
@@ -102,6 +145,7 @@ def top_contributors(owner: str, repo: str):
     except Exception as e:
         return {"error": str(e)}
 
+
 @app.get("/commit-activity")
 def commit_activity(owner: str, repo: str):
     try:
@@ -130,6 +174,8 @@ def commit_activity(owner: str, repo: str):
 
     except Exception as e:
         return {"error": str(e)}
+
+
 @app.get("/repo-summary")
 def repo_summary(owner: str, repo: str):
     try:
@@ -160,47 +206,3 @@ def repo_summary(owner: str, repo: str):
 
     except Exception as e:
         return {"error": str(e)}
-from fastapi import FastAPI
-import psycopg2
-import os
-
-@app.on_event("startup")
-def create_table():
-    conn = psycopg2.connect(os.getenv("DATABASE_URL"), sslmode="require")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS commits (
-            id SERIAL PRIMARY KEY,
-            repo_owner TEXT,
-            repo_name TEXT,
-            sha TEXT UNIQUE,
-            author TEXT,
-            message TEXT,
-            date TIMESTAMP
-        );
-    """)
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-@app.on_event("startup")
-def create_table():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS commits (
-            id SERIAL PRIMARY KEY,
-            repo_owner TEXT,
-            repo_name TEXT,
-            sha TEXT UNIQUE,
-            author TEXT,
-            message TEXT,
-            date TIMESTAMP
-        );
-    """)
-
-    conn.commit()
-    cursor.close()
-    conn.close()
