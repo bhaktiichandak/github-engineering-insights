@@ -4,15 +4,9 @@ import psycopg2
 import os
 app = FastAPI()
 
-
 def get_db_connection():
-    return psycopg2.connect(
-        host=os.getenv("DB_HOST"),
-        database=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        port=os.getenv("DB_PORT")
-    )
+    database_url = os.getenv("DATABASE_URL")
+    return psycopg2.connect(database_url, sslmode="require")
 
 @app.get("/")
 def home():
