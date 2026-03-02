@@ -72,15 +72,50 @@ def test_params(owner: str, repo: str):
 # -----------------------
 # Fetch & Store Commits
 # -----------------------
+from datetime import datetime
+
 @app.get("/commits")
 def get_commits(owner: str, repo: str):
     url = f"https://api.github.com/repos/{owner}/{repo}/commits"
     response = requests.get(url)
 
-    return {
-        "status_code": response.status_code,
-        "response_preview": response.text[:500]
-    }
+    if response.status_code != 200:
+        return {"error": "Repository not found or API failed"}
+
+    data = response.json()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    inserted_count = 0
+
+    for commit in data[:5]:
+        author = commit["commit"]["author"]["name"]
+        message = commit["commit"]["message"]
+        date_str = commit["commit"]["author"]["date"]
+        sha = commit["sha"]
+
+        # Convert ISO string to datetime object
+        commit_date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+
+        cursor.execute(
+            """
+            INSERT INTO commits (sha, repo_owner, repo_name, author, message, commit_date)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (sha) DO NOTHING
+            RETURNING id;
+            """,
+            (sha, owner, repo, author, message, commit_date)
+        )
+
+        if cursor.fetchone():
+            inserted_count += 1
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return {"status": "stored in database", "inserted": inserted_count}
 
 # -----------------------
 # Analytics Endpoints
