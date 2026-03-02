@@ -161,3 +161,27 @@ def repo_summary(owner: str, repo: str):
 
     except Exception as e:
         return {"error": str(e)}
+from fastapi import FastAPI
+import psycopg2
+import os
+
+@app.on_event("startup")
+def create_table():
+    conn = psycopg2.connect(os.getenv("DATABASE_URL"), sslmode="require")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS commits (
+            id SERIAL PRIMARY KEY,
+            repo_owner TEXT,
+            repo_name TEXT,
+            sha TEXT UNIQUE,
+            author TEXT,
+            message TEXT,
+            date TIMESTAMP
+        );
+    """)
+
+    conn.commit()
+    cursor.close()
+    conn.close()
