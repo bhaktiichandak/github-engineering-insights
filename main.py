@@ -1,19 +1,18 @@
 from fastapi import FastAPI
 import requests
 import psycopg2
-
+import os
 app = FastAPI()
 
 
 def get_db_connection():
-    conn = psycopg2.connect(
-        host="localhost",
-        database="github_insights",
-        user="postgres",
-        password="bhakti"  # your password
+    return psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        port=os.getenv("DB_PORT")
     )
-    return conn
-
 
 @app.get("/")
 def home():
